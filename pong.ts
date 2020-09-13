@@ -19,7 +19,7 @@ type Entity = Readonly<{
 }>
 
 type State = {
-
+    
 }
 
 function pong() {
