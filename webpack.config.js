@@ -2,6 +2,9 @@ const path = require('path');
 
 var fs = require('fs');
 
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { Template } = require('webpack');
+
 const onlyUnique = function(value, index, self) {
   return self.indexOf(value) === index;
 }
@@ -47,4 +50,11 @@ module.exports = {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
   },
+  plugins: [
+    new HtmlWebpackPlugin({
+      hash: true,
+      filename: './index.html',
+      template: './pong.html'
+    })
+  ]
 };

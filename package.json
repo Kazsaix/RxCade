@@ -1,8 +1,8 @@
 {
-  "name": "RxPong",
-  "version": "1.0.0",
-  "homepage": "http://kazsaix.github.io/RxPong",
-  "description": "A classic Pong Game in React implemented in a functional coding style",
+  "name": "RxCade",
+  "version": "0.1.0",
+  "homepage": "http://kazsaix.github.io/RxCade",
+  "description": "Classic Arcade Games built with React implemented in a functional coding style",
   "main": "pong.js",
   "directories": {
     "test": "test"
@@ -21,6 +21,7 @@
     "@types/mocha": "^8.0.3",
     "chai": "^4.2.0",
     "gh-pages": "^3.1.0",
+    "html-webpack-plugin": "^4.4.1",
     "mocha": "^8.1.3",
     "ncp": "^2.0.0",
     "ts-loader": "^8.0.0",
