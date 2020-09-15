@@ -1,16 +1,20 @@
-import { fromEvent, interval, from } from 'rxjs';
+import { fromEvent, interval, from, Observable } from 'rxjs';
 import { map, filter, merge, scan, flatMap, takeUntil} from 'rxjs/operators';
+
 
 //Game Settings Constants
 const 
   gameSettings = new class {
     readonly CanvasSize = 600;
+    readonly paddleLength = 100;
+    readonly paddleWidth = 10;
+    readonly PaddleOffset = 5;
+    readonly BallRadius = 10;
     readonly BallAcc = 0.1;
     readonly WinningScore = 7;
     readonly InbetweenRoundInterval = 2;
   }
   
-
 type Key = 'ArrowUp' | 'ArrowDown' | 'Space'
 
 type Event = 'keydown' | 'keyup'
@@ -28,27 +32,16 @@ type Entity = Readonly<{
 type PlayState = 'Play' | 'Pause' | 'GameOver'
 
 type GameState = Readonly<{
-  time:Number,
-  playerOneState:Entity,
-  playerAiState:Entity,
+  time:number,
+  playerOnePaddle:Entity,
+  playerTwoPaddle:Entity,
   ballState:Entity,
   playState:PlayState,
-  playerOneScore:Number,
-  playerAiScore:Number,
+  playerOneScore:number,
+  playerTwoScore:number,
 }>
 
-class Tick { constructor(public readonly elapsed:number){}}
-class MovementDirection { constructor(public readonly direction:number){}}
-
-const createPaddle = (pos_vector:Vector) => (id_string:string) => <Entity>{
-    id: id_string,
-    viewType: 'paddle',
-    pos: pos_vector,
-    vel: Vector.Zero,
-    acc: Vector.Zero
-}
-
-/**
+  /**
  * Simple Vector Math Class
  * adapted from Tim Dwyer's Work @https://tgdwyer.github.io/asteroids/
  */
@@ -60,86 +53,111 @@ class Vector {
   scale = (s:number) => new Vector(this.x*s, this.y*s)
   ortho = ()=> new Vector(this.y, -this.x)
   rotate = (deg:number) => 
-    (rad =>(
-      (cos,sin,{x,y})=>new Vector(x*cos - y*sin, x*sin + y*cos)
-     )(Math.cos(rad), Math.sin(rad), this)
-    )(Math.PI * deg / 180)
+      (rad =>(
+          (cos,sin,{x,y})=>new Vector(x*cos - y*sin, x*sin + y*cos)
+       )(Math.cos(rad), Math.sin(rad), this)
+      )(Math.PI * deg / 180)
   static unitVecInDirection = (deg: number) => new Vector(0,-1).rotate(deg)
   static Zero = new Vector();
+}
+
+class Tick { constructor(public readonly elapsed:number){}}
+class MovementDirection { constructor(public readonly direction: 'Up' | 'Down' | 'Stationary'){}}
+
+const createEntity = (id_string:string) => (view_type:ViewType) => (pos_vector:Vector) => <Entity>{
+    id: id_string,
+    viewType: view_type,
+    pos: pos_vector,
+    vel: Vector.Zero,
+    acc: Vector.Zero
+}
+
+const initialState:GameState = {
+  time:0,
+  playerOnePaddle: createEntity('paddlePlayerOne')('paddle')(new Vector(gameSettings.PaddleOffset, gameSettings.CanvasSize/2 - gameSettings.paddleLength/2)),
+  playerTwoPaddle: createEntity('paddlePlayerTwo')('paddle')(new Vector(gameSettings.CanvasSize - (gameSettings.paddleWidth + gameSettings.PaddleOffset), gameSettings.CanvasSize/2 - gameSettings.paddleLength/2)),
+  ballState: createEntity('pongBall')('ball')(new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2)),
+  playState: 'Play',
+  playerOneScore: 0,
+  playerTwoScore: 0,
+}
+
+console.log(initialState);
+
+const moveEntity = (e:Entity) => <Entity>{
+  ...e,
+  pos: e.pos.add(e.vel),
+  vel: e.vel.add(e.acc),
 }
 
 const near = (a:number) => (b:number) => (c:number) =>
   c >= a-b && c <= a+b
 
-const collision =(paddle)
+const handleCollisions = (s:GameState) => s;
+
+const tick = (s:GameState, elapsed) => handleCollisions({...s,
+  playerOnePaddle: moveEntity(s.playerOnePaddle),
+  time: elapsed
+}
+)
+
+const reduceState = (s:GameState, e:MovementDirection|Tick) =>
+  e instanceof MovementDirection ? {...s,
+    playerOnePaddle : {...s.playerOnePaddle,
+      vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(1+s.playerOnePaddle.vel.len()) : e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(1+s.playerOnePaddle.vel.len()) : Vector.Zero   
+    }
+  } : tick(s, e.elapsed);
 
 function updateView(s: GameState) {
   const 
-    svg = document.getElementById("")
+    svg = document.getElementById("canvas"),
+    paddlePlayerOneSVG = document.getElementById("paddlePlayerOne"),
+    paddlePlayerTwoSvg = document.getElementById("paddlePlayerTwo"),
+    attr = (e:Element) => (o:any) => { for(const k in o) e.setAttributeNS(svg.namespaceURI, k, String(o[k]))};
+  attr(paddlePlayerOneSVG)({transform:`translate(${s.playerOnePaddle.pos.x.toFixed(2)},${s.playerOnePaddle.pos.y.toFixed(2)})`});
+  attr(paddlePlayerTwoSvg)({transform:`translate(${s.playerTwoPaddle.pos.x.toFixed(2)},${s.playerTwoPaddle.pos.y.toFixed(2)})`});
 }
 
 function pong() {
 
-  function upView(s: paddleState):void {
-    const paddleplayer = paddle1;
-    paddleplayer.setAttribute('transform',
-        `translate(${s.x},${s.y})`)
-  }
-
-  type paddleState = Readonly<{
-    x:number,
-    y:number,
-  }>
-
-  const initPaddleState: paddleState = {x:10, y:250}
-
-  function translate(s:paddleState, rel_x:number, rel_y:number): paddleState {
-      return {...s, 
-       x: s.x + rel_x,
-        y: s.y + rel_y
-      }
-  }
-
-  function movePaddle(s:paddleState, y_trans:number): paddleState {
-    return translate(s, 0, y_trans)
-  }
-
-
-  const paddle1 = document.getElementById("paddlePlayer1")
-  const keydown$ = fromEvent<KeyboardEvent>(document, 'keydown');
-  const arrowKeys$ = keydown$.pipe(
-    filter(({key})=>key === 'ArrowUp' || key === 'ArrowDown'),
-    filter(({repeat})=>!repeat)
-  )
-  const moveUp$ = arrowKeys$.pipe(
-    flatMap(d=>interval(10).pipe(
-      takeUntil(fromEvent<KeyboardEvent>(document,'keyup').pipe(
-        filter(({key})=>key === d.key)
-      )), map(_=>d))),
-      map(d=>d.key==='ArrowUp'?-5:5),
-      scan(movePaddle, initPaddleState)
-      )
-
-    moveUp$.subscribe(upView)
-
-  class Tick { constructor(public readonly elapsed:number) {}}
-  
-    const keyObservable = <T>(e:Event, k:Key, result:()=>T)=>
+  const keyObservable = <T>(e:Event, k:Key, result:()=>T)=>
       fromEvent<KeyboardEvent>(document, e)
           .pipe(
             filter(({code})=>code === k),
             filter(({repeat})=>!repeat),
             map(result)
           ),
-      startMoveUp = keyObservable('keydown', 'ArrowUp', ()=>1)
+      upMoveKeyDown = keyObservable('keydown', 'ArrowUp', ()=>new MovementDirection('Up')),
+      downMoveKeyDown = keyObservable('keydown', 'ArrowDown', ()=>new MovementDirection('Down')),
+      upMoveKeyUp = keyObservable('keyup', 'ArrowUp', ()=> new MovementDirection('Stationary')),
+      downMoveKeyUp = keyObservable('keyup', 'ArrowDown', ()=> new MovementDirection('Stationary'));
+      ;
     
+  const up = upMoveKeyDown;
+  up.subscribe(s=>console.log('UpPressed')) 
+      
+  const gameLoopObs = interval(10).pipe(
+    map(elapsed=>new Tick(elapsed)),
+    merge(upMoveKeyDown, downMoveKeyDown, upMoveKeyUp, downMoveKeyUp),
+    scan(reduceState, initialState)
+  )
+  
+  const g1 = gameLoopObs.subscribe(updateView),
+    g2 = gameLoopObs.pipe(
+      filter(s=> s.time % 1000 == 0)
+    ).subscribe(s=>console.log(s))
   }
+
+
+  
+ 
   
   // the following simply runs your pong function on window load.  Make sure to leave it in place.
   if (typeof window != 'undefined')
     window.onload = ()=>{
       pong();
     }
-  
+
+
   
 
