@@ -1,7 +1,6 @@
 import { fromEvent, interval, from, Observable } from 'rxjs';
 import { map, filter, merge, scan, flatMap, takeUntil} from 'rxjs/operators';
 
-
 //Game Settings Constants
 const 
   gameSettings = new class {
@@ -15,11 +14,13 @@ const
     readonly InbetweenRoundInterval = 2;
   }
   
-type Key = 'ArrowUp' | 'ArrowDown' | 'Space'
+type Key = 'ArrowUp' | 'ArrowDown' | 'KeyP' | 'KeyR'
 
 type Event = 'keydown' | 'keyup'
 
 type ViewType = 'ball' | 'paddle'
+
+type PlayState = 'Play' | 'Pause' | 'GameOver'
 
 type Entity = Readonly<{
   id: string,
@@ -29,7 +30,6 @@ type Entity = Readonly<{
   acc:Vector,  
 }>
 
-type PlayState = 'Play' | 'Pause' | 'GameOver'
 
 type GameState = Readonly<{
   time:number,
@@ -63,6 +63,7 @@ class Vector {
 
 class Tick { constructor(public readonly elapsed:number){}}
 class MovementDirection { constructor(public readonly direction: 'Up' | 'Down' | 'Stationary'){}}
+class Pause {constructor(){}}
 
 const createEntity = (id_string:string) => (view_type:ViewType) => (pos_vector:Vector) => <Entity>{
     id: id_string,
@@ -84,28 +85,43 @@ const initialState:GameState = {
 
 console.log(initialState);
 
-const moveEntity = (e:Entity) => <Entity>{
+const moveEntity = (e:Entity) => e.viewType === 'paddle' ? <Entity>{
+  ...e,
+  pos: paddleCheckBounds(e.pos.add(e.vel)),
+  vel: e.vel.add(e.acc),
+} : <Entity>{
   ...e,
   pos: e.pos.add(e.vel),
   vel: e.vel.add(e.acc),
 }
 
-const near = (a:number) => (b:number) => (c:number) =>
+
+/**
+ * A small function to check if two values a and b are within c of each other
+ * @param a first value
+ * @param b second value
+ * @param c value of distance between a and b
+ */
+const near = (a:number) => (c:number) => (b:number) =>
   c >= a-b && c <= a+b
+
+const paddleCheckBounds = (pos:Vector):Vector => pos.y < 0 ? new Vector(gameSettings.PaddleOffset, 0) : pos.y + gameSettings.paddleLength > gameSettings.CanvasSize ? new Vector(gameSettings.PaddleOffset,gameSettings.CanvasSize) : new Vector(gameSettings.PaddleOffset,pos)
 
 const handleCollisions = (s:GameState) => s;
 
-const tick = (s:GameState, elapsed) => handleCollisions({...s,
+const tick = (s:GameState, elapsed) => 
+  s.playState === 'Play' ? handleCollisions({...s,
   playerOnePaddle: moveEntity(s.playerOnePaddle),
   time: elapsed
-}
-)
+}) : s
 
-const reduceState = (s:GameState, e:MovementDirection|Tick) =>
+const reduceState = (s:GameState, e:MovementDirection|Pause|Tick) =>
   e instanceof MovementDirection ? {...s,
     playerOnePaddle : {...s.playerOnePaddle,
       vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(1+s.playerOnePaddle.vel.len()) : e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(1+s.playerOnePaddle.vel.len()) : Vector.Zero   
     }
+  } : e instanceof Pause ? {...s,
+    playState: s.playState === 'Play' ? 'Pause' : 'Play'
   } : tick(s, e.elapsed);
 
 function updateView(s: GameState) {
@@ -114,12 +130,11 @@ function updateView(s: GameState) {
     paddlePlayerOneSVG = document.getElementById("paddlePlayerOne"),
     paddlePlayerTwoSvg = document.getElementById("paddlePlayerTwo"),
     attr = (e:Element) => (o:any) => { for(const k in o) e.setAttributeNS(svg.namespaceURI, k, String(o[k]))};
-  attr(paddlePlayerOneSVG)({transform:`translate(${s.playerOnePaddle.pos.x.toFixed(2)},${s.playerOnePaddle.pos.y.toFixed(2)})`});
-  attr(paddlePlayerTwoSvg)({transform:`translate(${s.playerTwoPaddle.pos.x.toFixed(2)},${s.playerTwoPaddle.pos.y.toFixed(2)})`});
+  attr(paddlePlayerOneSVG)({transform:`translate(${s.playerOnePaddle.pos.x.toFixed(2)} ${s.playerOnePaddle.pos.y.toFixed(2)})`});
+  attr(paddlePlayerTwoSvg)({transform:`translate(${s.playerTwoPaddle.pos.x.toFixed(2)} ${s.playerTwoPaddle.pos.y.toFixed(2)})`});
 }
 
 function pong() {
-
   const keyObservable = <T>(e:Event, k:Key, result:()=>T)=>
       fromEvent<KeyboardEvent>(document, e)
           .pipe(
@@ -130,15 +145,15 @@ function pong() {
       upMoveKeyDown = keyObservable('keydown', 'ArrowUp', ()=>new MovementDirection('Up')),
       downMoveKeyDown = keyObservable('keydown', 'ArrowDown', ()=>new MovementDirection('Down')),
       upMoveKeyUp = keyObservable('keyup', 'ArrowUp', ()=> new MovementDirection('Stationary')),
-      downMoveKeyUp = keyObservable('keyup', 'ArrowDown', ()=> new MovementDirection('Stationary'));
-      ;
+      downMoveKeyUp = keyObservable('keyup', 'ArrowDown', ()=> new MovementDirection('Stationary')),
+      pauseKeyPress = keyObservable('keydown', 'KeyP', ()=> new Pause());
     
   const up = upMoveKeyDown;
   up.subscribe(s=>console.log('UpPressed')) 
       
   const gameLoopObs = interval(10).pipe(
     map(elapsed=>new Tick(elapsed)),
-    merge(upMoveKeyDown, downMoveKeyDown, upMoveKeyUp, downMoveKeyUp),
+    merge(upMoveKeyDown, downMoveKeyDown, upMoveKeyUp, downMoveKeyUp, pauseKeyPress),
     scan(reduceState, initialState)
   )
   
@@ -148,16 +163,8 @@ function pong() {
     ).subscribe(s=>console.log(s))
   }
 
-
-  
- 
-  
   // the following simply runs your pong function on window load.  Make sure to leave it in place.
   if (typeof window != 'undefined')
     window.onload = ()=>{
       pong();
     }
-
-
-  
-
