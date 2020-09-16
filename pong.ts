@@ -5,15 +5,16 @@ import { map, filter, merge, scan, flatMap, takeUntil} from 'rxjs/operators';
 const 
   gameSettings = new class {
     readonly CanvasSize = 600;
-    readonly paddleLength = 100;
-    readonly paddleWidth = 10;
+    readonly PaddleLength = 100;
+    readonly PaddleWidth = 10;
     readonly PaddleOffset = 5;
+    readonly PaddleSpeed = 5
     readonly BallRadius = 10;
     readonly BallAcc = 0.1;
     readonly WinningScore = 7;
     readonly InbetweenRoundInterval = 2;
   }
-  
+
 type Key = 'ArrowUp' | 'ArrowDown' | 'KeyP' | 'KeyR'
 
 type Event = 'keydown' | 'keyup'
@@ -22,6 +23,7 @@ type ViewType = 'ball' | 'paddle'
 
 type PlayState = 'Play' | 'Pause' | 'GameOver'
 
+type Player = 'PlayerOne' | 'PlayerTwo'
 type Entity = Readonly<{
   id: string,
   viewType: ViewType,
@@ -29,7 +31,6 @@ type Entity = Readonly<{
   vel:Vector,
   acc:Vector,  
 }>
-
 
 type GameState = Readonly<{
   time:number,
@@ -51,6 +52,7 @@ class Vector {
   sub = (v:Vector) => new Vector(this.x - v.x, this.y - v.y)
   len = () => Math.sqrt(this.x**2 + this.y**2)
   scale = (s:number) => new Vector(this.x*s, this.y*s)
+  scale2d = (s:number) => (t:number) => new Vector(this.x*s, this.y*t)
   ortho = ()=> new Vector(this.y, -this.x)
   rotate = (deg:number) => 
       (rad =>(
@@ -73,21 +75,31 @@ const createEntity = (id_string:string) => (view_type:ViewType) => (pos_vector:V
     acc: Vector.Zero
 }
 
+const randomIntBetween = (min:number) => (max:number) => Math.floor(Math.random()*(max-min+1)+min)
+
+const serveBall = (e:Entity) => (p:Player) => 
+    p==='PlayerOne' ? {...e,
+      pos: new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2),
+      vel: Vector.unitVecInDirection(randomIntBetween(210)(330)).scale(randomIntBetween(3)(10))
+  } : {...e,
+    pos: new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2),
+    vel: Vector.unitVecInDirection(randomIntBetween(30)(150)).scale(randomIntBetween(3)(10))
+}
+
 const initialState:GameState = {
   time:0,
-  playerOnePaddle: createEntity('paddlePlayerOne')('paddle')(new Vector(gameSettings.PaddleOffset, gameSettings.CanvasSize/2 - gameSettings.paddleLength/2)),
-  playerTwoPaddle: createEntity('paddlePlayerTwo')('paddle')(new Vector(gameSettings.CanvasSize - (gameSettings.paddleWidth + gameSettings.PaddleOffset), gameSettings.CanvasSize/2 - gameSettings.paddleLength/2)),
-  ballState: createEntity('pongBall')('ball')(new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2)),
+  playerOnePaddle: createEntity('paddlePlayerOne')('paddle')(new Vector(gameSettings.PaddleOffset, gameSettings.CanvasSize/2 - gameSettings.PaddleLength/2)),
+  playerTwoPaddle: createEntity('paddlePlayerTwo')('paddle')(new Vector(gameSettings.CanvasSize - (gameSettings.PaddleWidth + gameSettings.PaddleOffset), gameSettings.CanvasSize/2 - gameSettings.PaddleLength/2)),
+  ballState: serveBall(createEntity('pongBall')('ball')(new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2)))('PlayerOne'),
   playState: 'Play',
   playerOneScore: 0,
   playerTwoScore: 0,
 }
 
-console.log(initialState);
-
 const moveEntity = (e:Entity) => e.viewType === 'paddle' ? <Entity>{
   ...e,
-  pos: paddleCheckBounds(e.pos.add(e.vel)),
+  // pos: paddleCheckBounds(e.pos.add(e.vel)),
+  pos: new Vector(gameSettings.PaddleOffset, paddleCheckBounds(e.pos.add(e.vel).y)),
   vel: e.vel.add(e.acc),
 } : <Entity>{
   ...e,
@@ -96,43 +108,55 @@ const moveEntity = (e:Entity) => e.viewType === 'paddle' ? <Entity>{
 }
 
 
+
 /**
  * A small function to check if two values a and b are within c of each other
  * @param a first value
  * @param b second value
  * @param c value of distance between a and b
  */
-const near = (a:number) => (c:number) => (b:number) =>
-  c >= a-b && c <= a+b
+const near = (a:number) => (c:number) => (b:number):Boolean =>  Math.abs(a-b) <= c;
 
-const paddleCheckBounds = (pos:Vector):Vector => pos.y < 0 ? new Vector(gameSettings.PaddleOffset, 0) : pos.y + gameSettings.paddleLength > gameSettings.CanvasSize ? new Vector(gameSettings.PaddleOffset,gameSettings.CanvasSize) : new Vector(gameSettings.PaddleOffset,pos)
+// const paddleCheckBounds = (pos:Vector):Vector => pos.y < 0 ? new Vector(gameSettings.PaddleOffset, 0) : pos.y + gameSettings.PaddleLength > gameSettings.CanvasSize ? new Vector(gameSettings.PaddleOffset,gameSettings.CanvasSize-gameSettings.PaddleLength) : new Vector(gameSettings.PaddleOffset,pos.y);
+   const paddleCheckBounds = (pos:number):number => pos < 0 ?  0 : pos + gameSettings.PaddleLength > gameSettings.CanvasSize ? gameSettings.CanvasSize-gameSettings.PaddleLength : pos;
 
-const handleCollisions = (s:GameState) => s;
+const handleCollisions = (s:GameState) => courtCollisions(s);
+// const handleCollisions = (s:GameState) => s;
+
+const courtCollisions = (s:GameState) => 
+    near(s.ballState.pos.y)(gameSettings.BallRadius)(0) || near(s.ballState.pos.y)(gameSettings.BallRadius)(gameSettings.CanvasSize) ?  {...s, 
+        ballState: {...s.ballState,
+          vel: s.ballState.vel.scale2d(1)(-1)  
+        }
+      } : near(s.ballState.pos.x)(gameSettings.BallRadius)(0) ? {...s,
+        ballState: serveBall(s.ballState)('PlayerOne'),
+        playerTwoScore: s.playerTwoScore + 1
+      }
+      : near(s.ballState.pos.x)(gameSettings.BallRadius)(gameSettings.CanvasSize) ? {...s,
+        ballState: serveBall(s.ballState)('PlayerTwo'),
+        playerOneScore: s.playerOneScore + 1
+      } 
+      : s
+
+
+// const paddleCollions = ()
 
 const tick = (s:GameState, elapsed) => 
   s.playState === 'Play' ? handleCollisions({...s,
   playerOnePaddle: moveEntity(s.playerOnePaddle),
+  ballState: moveEntity(s.ballState),
   time: elapsed
-}) : s
+}) : s.playState === 'Pause' ? s : s
 
 const reduceState = (s:GameState, e:MovementDirection|Pause|Tick) =>
   e instanceof MovementDirection ? {...s,
     playerOnePaddle : {...s.playerOnePaddle,
-      vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(1+s.playerOnePaddle.vel.len()) : e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(1+s.playerOnePaddle.vel.len()) : Vector.Zero   
+      vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(gameSettings.PaddleSpeed) : e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(gameSettings.PaddleSpeed) : Vector.Zero   
     }
   } : e instanceof Pause ? {...s,
     playState: s.playState === 'Play' ? 'Pause' : 'Play'
   } : tick(s, e.elapsed);
 
-function updateView(s: GameState) {
-  const 
-    svg = document.getElementById("canvas"),
-    paddlePlayerOneSVG = document.getElementById("paddlePlayerOne"),
-    paddlePlayerTwoSvg = document.getElementById("paddlePlayerTwo"),
-    attr = (e:Element) => (o:any) => { for(const k in o) e.setAttributeNS(svg.namespaceURI, k, String(o[k]))};
-  attr(paddlePlayerOneSVG)({transform:`translate(${s.playerOnePaddle.pos.x.toFixed(2)} ${s.playerOnePaddle.pos.y.toFixed(2)})`});
-  attr(paddlePlayerTwoSvg)({transform:`translate(${s.playerTwoPaddle.pos.x.toFixed(2)} ${s.playerTwoPaddle.pos.y.toFixed(2)})`});
-}
 
 function pong() {
   const keyObservable = <T>(e:Event, k:Key, result:()=>T)=>
@@ -153,7 +177,7 @@ function pong() {
       
   const gameLoopObs = interval(10).pipe(
     map(elapsed=>new Tick(elapsed)),
-    merge(upMoveKeyDown, downMoveKeyDown, upMoveKeyUp, downMoveKeyUp, pauseKeyPress),
+    merge(upMoveKeyUp, downMoveKeyUp, upMoveKeyDown, downMoveKeyDown,  pauseKeyPress),
     scan(reduceState, initialState)
   )
   
@@ -161,6 +185,22 @@ function pong() {
     g2 = gameLoopObs.pipe(
       filter(s=> s.time % 1000 == 0)
     ).subscribe(s=>console.log(s))
+
+    function updateView(s: GameState) {
+      const 
+        svg = document.getElementById("canvas"),
+        paddlePlayerOneSvg = document.getElementById("paddlePlayerOne"),
+        paddlePlayerTwoSvg = document.getElementById("paddlePlayerTwo"),
+        ballSvg = document.getElementById("pongBall"),
+        attr = (e:Element) => (o:any) => { for(const k in o) e.setAttribute( k, String(o[k]))};
+      attr(paddlePlayerOneSvg)({transform:`translate(${Math.round(s.playerOnePaddle.pos.x)} ${Math.round(s.playerOnePaddle.pos.y)})`});
+      attr(paddlePlayerTwoSvg)({transform:`translate(${Math.round(s.playerTwoPaddle.pos.x)} ${Math.round(s.playerTwoPaddle.pos.y)})`});
+      attr(ballSvg)({transform:`translate(${Math.round(s.ballState.pos.x)} ${Math.round(s.ballState.pos.y)})`});
+      if (s.playState == 'GameOver') {
+        g1.unsubscribe();
+        // const gameOverMessage
+      }
+    }
   }
 
   // the following simply runs your pong function on window load.  Make sure to leave it in place.
