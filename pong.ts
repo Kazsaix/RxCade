@@ -8,7 +8,7 @@ const
     readonly PaddleLength = 100;
     readonly PaddleWidth = 10;
     readonly PaddleOffset = 5;
-    readonly PaddleSpeed = 5
+    readonly PaddleSpeed = 7;
     readonly BallRadius = 10;
     readonly BallAcc = 0.1;
     readonly WinningScore = 7;
@@ -64,7 +64,7 @@ class Vector {
 }
 
 class Tick { constructor(public readonly elapsed:number){}}
-class MovementDirection { constructor(public readonly direction: 'Up' | 'Down' | 'Stationary'){}}
+class MovementDirection { constructor(public readonly direction: 'Up' | 'Down' | 'UpStop' | 'DownStop'){}}
 class Pause {constructor(){}}
 
 const createEntity = (id_string:string) => (view_type:ViewType) => (pos_vector:Vector) => <Entity>{
@@ -80,10 +80,10 @@ const randomIntBetween = (min:number) => (max:number) => Math.floor(Math.random(
 const serveBall = (e:Entity) => (p:Player) => 
     p==='PlayerOne' ? {...e,
       pos: new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2),
-      vel: Vector.unitVecInDirection(randomIntBetween(210)(330)).scale(randomIntBetween(3)(10))
+      vel: Vector.unitVecInDirection(randomIntBetween(210)(330)).scale(randomIntBetween(3)(8))
   } : {...e,
     pos: new Vector(gameSettings.CanvasSize/2, gameSettings.CanvasSize/2),
-    vel: Vector.unitVecInDirection(randomIntBetween(30)(150)).scale(randomIntBetween(3)(10))
+    vel: Vector.unitVecInDirection(randomIntBetween(30)(150)).scale(randomIntBetween(3)(8))
 }
 
 const initialState:GameState = {
@@ -151,7 +151,10 @@ const tick = (s:GameState, elapsed) =>
 const reduceState = (s:GameState, e:MovementDirection|Pause|Tick) =>
   e instanceof MovementDirection ? {...s,
     playerOnePaddle : {...s.playerOnePaddle,
-      vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(gameSettings.PaddleSpeed) : e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(gameSettings.PaddleSpeed) : Vector.Zero   
+      vel: e.direction === 'Up' ? Vector.unitVecInDirection(0).scale(gameSettings.PaddleSpeed) : 
+      e.direction === 'Down' ? Vector.unitVecInDirection(180).scale(gameSettings.PaddleSpeed) : 
+      e.direction === 'UpStop' ? s.playerOnePaddle.vel.sub(Vector.unitVecInDirection(0).scale(gameSettings.PaddleSpeed)) :    
+      s.playerOnePaddle.vel.sub(Vector.unitVecInDirection(180).scale(gameSettings.PaddleSpeed))
     }
   } : e instanceof Pause ? {...s,
     playState: s.playState === 'Play' ? 'Pause' : 'Play'
@@ -168,8 +171,8 @@ function pong() {
           ),
       upMoveKeyDown = keyObservable('keydown', 'ArrowUp', ()=>new MovementDirection('Up')),
       downMoveKeyDown = keyObservable('keydown', 'ArrowDown', ()=>new MovementDirection('Down')),
-      upMoveKeyUp = keyObservable('keyup', 'ArrowUp', ()=> new MovementDirection('Stationary')),
-      downMoveKeyUp = keyObservable('keyup', 'ArrowDown', ()=> new MovementDirection('Stationary')),
+      upMoveKeyUp = keyObservable('keyup', 'ArrowUp', ()=> new MovementDirection('UpStop')),
+      downMoveKeyUp = keyObservable('keyup', 'ArrowDown', ()=> new MovementDirection('DownStop')),
       pauseKeyPress = keyObservable('keydown', 'KeyP', ()=> new Pause());
     
   const up = upMoveKeyDown;
