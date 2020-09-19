@@ -1,12 +1,8 @@
 <html>
     <head>
         <style>
-            @import url(style.css);
-            p.highlight {
-                color: red;
-            }
-            svg {
-                background-color: rgb(41, 41, 36);
+            p {
+                color: white;
             }
         </style>
         <!-- <script src="./dist/pong.js"></script> -->
@@ -14,14 +10,14 @@
     <body style="background-color:black;">
         <h1 style="color:white">RxPong</h1>
         <svg id="canvas" width="600" height="600 "style="background-color:black">
-            <g id="paddlePlayerOne" transform="translate(5,250)">
+            <!-- <g id="paddlePlayerOne" transform="translate(5,250)">
                 <rect width="10" height="100" style="fill:rgb(255, 255, 255)"/>
             </g>
             <g id="paddlePlayerTwo" transform="translate(595,250)">
                 <rect width="10" height="100" style="fill:white"/>
             </g>
             <g id="pongBall" transform="translate(295,295)">
-                <circle cx="0" cy="0" r="10" style="fill:rgb(255, 255, 255)"/>
+                <rect width="10" height="10" style="fill:rgb(255, 255, 255)"/>
             </g>
             <g id="centreLine">
                 <line x1="300" x2="300" y1="0" y2="600" style="stroke:white" stroke-width="2" stroke-dasharray="10, 8"/>
@@ -33,9 +29,16 @@
                 <line x1="0" x2="600" y1="0" y2="0" style="stroke:white" />
             </g>
             <g id="PauseText">
-                <text x="100" y="300" fill="white" class="pause">Pause</text>
-                <text x="100" y="350" fill="white" class="pause">Press P to resume</text>
+                <text x="100" y="300" fill="white" class="pause" visibility="hidden">Pause</text>
+                <text x="100" y="350" fill="white" class="pause" visibility="hidden">Press P to resume</text>
             </g>
+            <g id="GameOverText">
+                <text x="100" y="300" fill="white" class="gameover" visibility="hidden">Pause</text>
+                <text x="100" y="350" fill="white" class="gameover" visibility="hidden">Press P to resume</text>
+            </g> -->
         </svg> 
+        <p>Controls:</p>
+        <p>Up and Down arrows for paddle movement</p>
+        <p>Press P to pause and R to restart game when gameover</p>
     </body>
 </html>
