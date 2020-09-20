@@ -1,4 +1,8 @@
 export{Elem}
+
+/**
+ * A class for 
+ */
 class Elem {
     elem: Element;
 
@@ -15,6 +19,14 @@ class Elem {
         this.elem.setAttribute(name, value.toString());
         return this;
       }
+
+    /**
+     * Applies an object to an html elements attributes, with the objects key name as the html name and the key's value as
+     * the html value
+     * Converts values to string before applying 
+     * Adapted from 
+     * @param object collection of key,value pairs to applie to html element
+     */
     mulAttr(object:any): this {
       for(const k in object) this.attr( k, String(object[k]));
       return this;
