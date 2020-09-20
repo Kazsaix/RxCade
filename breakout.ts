@@ -1,9 +1,9 @@
-import { fromEvent, interval, from, Observable } from 'rxjs';
-import { map, filter, merge, scan, flatMap, takeUntil, take} from 'rxjs/operators';
+import { fromEvent, interval, generate, from, Observable } from 'rxjs';
+import { map, filter, merge, scan, flatMap, takeUntil, take, exhaustMap} from 'rxjs/operators';
 import {Elem} from './svgElementHelper';
 import {Vector} from './vector';
 import * as random from './randomSequence';
-import { createEntity, Entity, entityCheckBounds, entityCollisionChecker, moveEntity, serveEntity } from './entity';
+import { createEntity, Entity, entityCheckBounds, entityCollisionChecker, moveEntity, serveEntity, ViewType } from './entity';
 import { keyObservable, near, velVecInDirection } from './helpers';
 import {menu} from './menu'
 
@@ -20,6 +20,10 @@ const
     readonly BallRadius = 5;
     readonly BallAcc = 0.1;
     readonly BallMaxBounceAngle = 75;
+    readonly BrickRows = 8;
+    readonly BrickColumns = 14;
+    readonly BrickHeight = 20;
+    readonly BrickGap = 4
   }
 
 //Create SVG Elements
@@ -66,16 +70,36 @@ type GameState = Readonly<{
     playerLives:number
     ballState:Entity,
     playState:PlayState,
-    blocks:ReadonlyArray<Block>,
+    blocks:ReadonlyArray<Brick>,
     playerScore:number,
     rng:random.LazySequence<number>
 }>
 
-class Block extends Entity{
+class Brick extends Entity{
     pointValue:number
 }
  
-// const createBlocks = (s:GameState) =>
+const createBrick = (id_string:string) => (viewType:ViewType) => (xPos:number) => (yPos:number) => (brickXSize:number) => (brickYSize:number) => (value:number):Brick  => 
+<Brick>{
+  id: id_string,
+  viewType: viewType,
+  pos: new Vector(xPos, yPos),
+  xSize: brickXSize,
+  ySize: brickYSize,
+  vel: Vector.Zero,
+  acc: Vector.Zero,
+  pointValue: value
+} 
+
+const createBlocks = () => {
+    const brickWidth = (gameSettings.CanvasXSize - gameSettings.BrickGap*(1+gameSettings.BrickColumns)) / gameSettings.BrickColumns
+    let brickArray: Brick[] = []
+    const bricksRow = generate(1, x=> x < gameSettings.BrickRows+1, x=>x+1)
+    const bricksColumns = generate(1, x=> x < gameSettings.BrickColumns+1, x=>x+1)
+    // const brickFactory = 
+    return brickArray;
+}
+  
 
 // Game Event Classes for observable streams to pass events into the game loop
 /**
@@ -165,6 +189,9 @@ const ballBounceVelocity = (block:Entity) => (ball:Entity):Vector => {
    */
   const paddleCollionHelper = (s:GameState) => {return {...s, ballState: ballTowardsPlayer(s.ballState) ? paddleCollions(s.playerPaddle)(s.ballState) : s.ballState}}
   
+  const blockCollisions = (s:GameState) => {
+      const blocksHit = s.blocks.filter(b=>entityCollisionChecker(b)(s.ballState))
+  }
 
   /**
    * A small boolean function to check whether the ball is traveling towards the ai (right side)

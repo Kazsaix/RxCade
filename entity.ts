@@ -1,10 +1,10 @@
 import {Vector} from './vector'
 import {randomIntBetween} from './randomSequence'
 
-export {Entity, createEntity, moveEntity, entityCheckBounds, entityCollisionChecker, serveEntity}
+export {Entity, ViewType, createEntity, moveEntity, entityCheckBounds, entityCollisionChecker, serveEntity}
 
 
-type ViewType = 'ball' | 'paddle'
+type ViewType = 'ball' | 'paddle' | 'brick'
 
 class Entity {
     readonly id:string;

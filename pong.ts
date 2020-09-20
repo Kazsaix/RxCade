@@ -303,15 +303,20 @@ const upMoveKeyDown = keyObservable('keydown', 'ArrowUp', ()=>new MovementDirect
     rng: random.randomSequence(randomSeed).next().next()
   }
 
+  /**
+   * Creates the game frame loop observable, and merges game tick events with user input events
+   */
   const pongGameObs =  interval(10).pipe(
     map(elapsed=>new Tick(elapsed)),
     merge(upMoveKeyUp, downMoveKeyUp, upMoveKeyDown, downMoveKeyDown,  pauseKeyPress, restartKeyPress),
     scan(reduceState, initialState)
   )
+
+/**
+ * Starts the game and subscribes the frame observable to the impure updateView function to crea
+ */
 function pong() {
-    pongGameObs.subscribe(console.log)
     pongGameObs.subscribe(updateView) 
-    
   }
 
   // the following simply runs your pong function on window load.  Make sure to leave it in place.

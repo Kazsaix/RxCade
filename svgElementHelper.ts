@@ -1,7 +1,7 @@
 export{Elem}
 
 /**
- * A class for 
+ * A class for handling HTMLElements
  */
 class Elem {
     elem: Element;
@@ -24,7 +24,7 @@ class Elem {
      * Applies an object to an html elements attributes, with the objects key name as the html name and the key's value as
      * the html value
      * Converts values to string before applying 
-     * Adapted from 
+     * adapted from Tim Dwyer's Work @https://tgdwyer.github.io/asteroids/
      * @param object collection of key,value pairs to applie to html element
      */
     mulAttr(object:any): this {
