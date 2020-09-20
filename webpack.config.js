@@ -25,6 +25,8 @@ module.exports = {
     ignored: files
   },
   entry: {
+    index:'./index.ts',
+    breakout:'./breakout.ts',
     pong:'./pong.ts',
   },
   devtool: 'inline-source-map',
@@ -54,7 +56,20 @@ module.exports = {
     new HtmlWebpackPlugin({
       hash: true,
       filename: './index.html',
-      template: './pong.html'
+      template: './index.html',
+      excludeChunks:['pong','breakout']
+    }),
+    new HtmlWebpackPlugin({
+      hash: true,
+      filename: './pong.html',
+      template: './pong.html',
+      excludeChunks:['index','breakout']
+    }),
+    new HtmlWebpackPlugin({
+      hash: true,
+      filename: './breakout.html',
+      template: './breakout.html',
+      excludeChunks:['pong','index']
     })
   ]
 };
